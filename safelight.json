@@ -1,0 +1,25 @@
+{
+  "id": "safelight.white-balance",
+  "name": "White Balance",
+  "version": "3.0.0",
+  "description": "Temperature and tint, with an eyedropper and Auto.",
+  "author": "Anthony Reimche",
+  "main": "dist/index.js",
+  "license": "GPL-3.0-only",
+  "categories": [
+    "color"
+  ],
+  "keywords": [
+    "white balance",
+    "temperature",
+    "tint",
+    "eyedropper",
+    "auto white balance",
+    "kelvin"
+  ],
+  "repository": "anthonyreimche/white-balance",
+  "worksWith": [
+    "anthonyreimche/Develop"
+  ],
+  "minAppVersion": "3.2.0"
+}
