@@ -6,7 +6,7 @@ eyedropper and Auto.
 - **Picker:** switch it on, then click something in the photo that should be
   neutral grey. Safelight adjusts Temp and Tint until that point is neutral,
   as one Undo step, and the picker switches off. Escape switches it off too.
-- **Auto:** a gray-world balance of the whole photo, as one Undo step.
+- **Auto:** a grey-world balance of the whole photo, as one Undo step.
 - **Temp** opens at the photo's as-shot temperature; double-click the slider
   to go back to it. **Tint** runs from green (−150) to magenta (+150).
 - Masks get relative Temp and Tint shifts (−100 to 100) of their own.

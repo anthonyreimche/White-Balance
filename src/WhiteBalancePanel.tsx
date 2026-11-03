@@ -49,7 +49,7 @@ export function WhiteBalancePanel() {
         <AutoButton
           onClick={() => void api.develop.autoAdjust.whiteBalance()}
           disabled={!hasHistogram}
-          title="Auto white balance (gray-world)"
+          title="Auto white balance (grey-world)"
         />
       </div>
       <div className={cls.sliders}>

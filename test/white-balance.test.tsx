@@ -1,6 +1,6 @@
 // What activate() registers, the stage every line carries, and the panel: the
 // Picker holds the canvas's pick tool and hands its press to core's eyedropper
-// run, Auto runs core's gray-world balance, both wait for a frame, and the
+// run, Auto runs core's grey-world balance, both wait for a frame, and the
 // sliders write Temp and Tint around the photo's as-shot temperature. The mask
 // instance shifts the mask's own relative Temp and Tint.
 

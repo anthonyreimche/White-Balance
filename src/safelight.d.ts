@@ -194,7 +194,7 @@ export interface SafelightAPI {
     useMaskScope(): MaskScope;
     /** Core's auto adjustments, each run to convergence as one undo step. */
     autoAdjust: {
-      /** Gray-world white balance ("Auto White Balance"). */
+      /** Grey-world white balance ("Auto White Balance"). */
       whiteBalance(): Promise<void>;
       /** Make the canvas point neutral ("White Balance"). */
       whiteBalanceAt(point: CanvasPoint): Promise<void>;
