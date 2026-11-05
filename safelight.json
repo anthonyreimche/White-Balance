@@ -1,7 +1,7 @@
 {
   "id": "safelight.white-balance",
   "name": "White Balance",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Temperature and tint, with an eyedropper and Auto.",
   "author": "Anthony Reimche",
   "main": "dist/index.js",

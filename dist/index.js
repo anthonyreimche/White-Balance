@@ -61,7 +61,7 @@ function l() {
 	}, /* @__PURE__ */ e.createElement(i, null), "Picker"), /* @__PURE__ */ e.createElement(a, {
 		onClick: () => void t.develop.autoAdjust.whiteBalance(),
 		disabled: !p,
-		title: "Auto white balance (gray-world)"
+		title: "Auto white balance (grey-world)"
 	})), /* @__PURE__ */ e.createElement("div", { className: o.sliders }, /* @__PURE__ */ e.createElement(r, {
 		label: "Temp",
 		value: l,
