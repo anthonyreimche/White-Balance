@@ -8,7 +8,7 @@
 // every rule to zero specificity, so a stylesheet that restyles the panel or
 // its buttons wins over them. The `html.sl-larger-text` and
 // `html.sl-title-headings` rules repeat core's Accessibility rules for 10 px,
-// uppercase and widely tracked text.
+// uppercase and widely tracked text, and for the as-shot line's 10 px.
 
 import type { UiTokens } from "./safelight";
 
@@ -18,7 +18,9 @@ export const cls = {
   toolbar: `${P}-toolbar`,
   picker: `${P}-picker`,
   on: `${P}-on`,
+  preset: `${P}-preset`,
   sliders: `${P}-sliders`,
+  asShot: `${P}-as-shot`,
 } as const;
 
 export function whiteBalanceCss(t: UiTokens): string {
@@ -29,6 +31,9 @@ export function whiteBalanceCss(t: UiTokens): string {
 :where(.${cls.picker}.${cls.on}) { border-color: ${t.accent}; background-color: color-mix(in srgb, ${t.accent} 30%, transparent); color: ${t.textPrimary}; }
 :where(.${cls.picker}:disabled) { cursor: default; opacity: 0.4; }
 :where(.${cls.sliders} > :not(:last-child)) { margin-block: 0 0.125rem; }
+:where(.${cls.preset}) { margin-bottom: 0.5rem; }
+:where(.${cls.asShot}) { margin: 0.25rem 0 0; font-size: 10px; color: ${t.textSecondary}; }
+html.sl-larger-text .${cls.asShot} { font-size: 12px !important; }
 html.sl-larger-text .${cls.picker} { font-size: 12px !important; text-transform: none !important; letter-spacing: normal !important; }
 html.sl-title-headings .${cls.picker} { text-transform: capitalize !important; }
 `;

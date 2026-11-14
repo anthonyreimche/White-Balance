@@ -6,8 +6,8 @@
 // The slice of Safelight's extension API this extension touches, mirrored from
 // the app's src/extensions/types.ts, src/catalog/types.ts,
 // src/state/develop-store.ts, src/modules/develop/{mask-scope,pick-drag}.ts,
-// src/hooks/use-auto-adjust.ts and src/ui/components/{Panel,Slider,
-// PickerIcon,AutoButton}.tsx. Extensions are standalone bundles, so the host's
+// src/hooks/use-auto-adjust.ts, src/catalog/{photo,exif}.ts and
+// src/ui/components/{Panel,Slider,PickerIcon,AutoButton,Select}.tsx. Extensions are standalone bundles, so the host's
 // source is not on the type path; React types come from @types/react (dev
 // only).
 
@@ -34,6 +34,8 @@ export interface DevelopParams {
 }
 
 export interface DevelopStoreState {
+  /** The photo open in Develop, or null. */
+  photoId: string | null;
   params: DevelopParams;
   /** The open photo's as-shot temperature, Kelvin. */
   asShotTemperature: number;
@@ -44,6 +46,27 @@ export interface DevelopStoreState {
   commitEdit(label: string): Promise<void>;
   /** Put `keys` back to their defaults as one undoable step under `label`. */
   resetParams(keys: (keyof DevelopParams)[], label: string): Promise<void>;
+}
+
+/** The EXIF fields this extension reads. Core's carry many more. */
+export interface ExifData {
+  cameraMake?: string;
+  cameraModel?: string;
+  /** The EXIF white balance mode or light source ("Auto", "Daylight"). */
+  whiteBalance?: string;
+  /** The as-shot Kelvin import read from a RAW; absent on rendered photos. */
+  colorTemperature?: number;
+  /** The camera's as-shot white balance multipliers (red, green, blue), green
+   *  at 1. Safelight 3.2.5 and later; a photo imported earlier gets them at its
+   *  next Develop open. */
+  asShotMultipliers?: [number, number, number];
+}
+
+/** The catalogue photo fields this extension reads. */
+export interface CatalogPhoto {
+  id: string;
+  filename: string;
+  exif: ExifData;
 }
 
 export interface PanelDockDefault {
@@ -135,8 +158,37 @@ export interface SliderProps {
   step?: number;
   /** Double-clicking the track resets to this. */
   defaultValue?: number;
+  /** CSS background for the track, drawn with a thumb marker instead of the
+   *  filled bar. */
+  trackBackground?: string;
   onChange(value: number): void;
   onCommit?(): void;
+  /** Shift+double-click on the track. Needs Safelight 3.2.5; older builds
+   *  reset on any double-click. */
+  onAuto?(): void;
+}
+
+export interface SelectOption {
+  value: string;
+  label: string;
+  disabled?: boolean;
+}
+
+export interface SelectGroup {
+  /** A heading over the group. */
+  title?: string;
+  items: SelectOption[];
+}
+
+export interface SelectProps {
+  value: string;
+  onChange(value: string): void;
+  options?: SelectOption[];
+  groups?: SelectGroup[];
+  disabled?: boolean;
+  className?: string;
+  ariaLabel?: string;
+  title?: string;
 }
 
 export interface AutoButtonProps {
@@ -200,7 +252,15 @@ export interface SafelightAPI {
       whiteBalanceAt(point: CanvasPoint): Promise<void>;
     };
   };
-  ui: { tokens: UiTokens };
+  catalog: {
+    /** React hook: the photo open in Develop, or undefined. */
+    useActivePhoto(): CatalogPhoto | undefined;
+  };
+  ui: {
+    tokens: UiTokens;
+    /** Core's themed dropdown, full width. */
+    Select: ComponentType<SelectProps>;
+  };
 }
 
 export interface ExtensionModule {

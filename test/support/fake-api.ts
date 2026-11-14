@@ -1,16 +1,18 @@
 // A stand-in Safelight API over real React and zustand. The develop store holds
 // Temp, Tint, the as-shot temperature and whether a frame has a histogram, the
 // way core's does, and records every write; the pick-drag tool and the auto
-// runs are recorded as core would receive them. Core's Panel draws its
-// children, and core's Slider and AutoButton are stubs that keep the props
-// they were last rendered with, so a test can drive them the way the real ones
-// would.
+// runs are recorded as core would receive them, and Auto sets AUTO_RESULT the
+// way core's grey-world run would. The active photo is a Nikon Z 6 RAW unless
+// a test gives another. Core's Panel draws its children, and core's Slider,
+// AutoButton and Select are stubs that keep the props they were last rendered
+// with, so a test can drive them the way the real ones would.
 
 import * as React from "react";
 import { create } from "zustand";
 import type {
   AutoButtonProps,
   CanvasPoint,
+  CatalogPhoto,
   DevelopParams,
   DevelopStoreState,
   MaskScope,
@@ -19,6 +21,7 @@ import type {
   PickDragTool,
   ProcessingStageContribution,
   SafelightAPI,
+  SelectProps,
   SliderProps,
   StoreApi,
   StylesheetContribution,
@@ -33,6 +36,19 @@ export type DevelopCall =
 export type AutoCall = "whiteBalance" | { whiteBalanceAt: CanvasPoint };
 
 export const AS_SHOT = 4237;
+
+/** What the stand-in Auto run sets. */
+export const AUTO_RESULT = { temperature: 5210, tint: 6 } as const;
+
+export type PhotoSketch = Pick<CatalogPhoto, "filename"> & { exif: CatalogPhoto["exif"] };
+
+/** A Nikon Z 6 NEF shot on the camera's Auto white balance. */
+export const Z6_RAW: PhotoSketch = {
+  filename: "DSC_0001.NEF",
+  exif: { cameraMake: "NIKON CORPORATION", cameraModel: "NIKON Z 6", colorTemperature: AS_SHOT, whiteBalance: "Auto" },
+};
+
+let nextPhoto = 0;
 
 export const TOKENS: UiTokens = {
   border: "var(--color-border)",
@@ -56,10 +72,18 @@ export interface Rig {
   sliders(root: ParentNode): SliderProps[];
   /** The props core's AutoButton was last rendered with. */
   auto(): AutoButtonProps;
+  /** The props core's Select was last rendered with. */
+  select(): SelectProps;
   mask: { adj: { temperature: number; tint: number }; commits: string[] };
 }
 
-export function fakeApi({ histogram = true, temperature = AS_SHOT, tint = 0 } = {}): Rig {
+export function fakeApi({
+  histogram = true,
+  temperature = AS_SHOT,
+  tint = 0,
+  asShot = AS_SHOT,
+  photo = Z6_RAW as PhotoSketch | null,
+} = {}): Rig {
   const calls: DevelopCall[] = [];
   const autos: AutoCall[] = [];
   const panels: PanelContribution[] = [];
@@ -71,10 +95,13 @@ export function fakeApi({ histogram = true, temperature = AS_SHOT, tint = 0 } = 
   const sliderProps = new Map<number, SliderProps>();
   let nextSlider = 0;
   let lastAuto: AutoButtonProps | null = null;
+  let lastSelect: SelectProps | null = null;
+  const active = photo ? ({ id: `photo-${nextPhoto++}`, ...photo } as CatalogPhoto) : undefined;
 
   const develop: StoreApi<DevelopStoreState> = create<DevelopStoreState>()((set) => ({
+    photoId: active?.id ?? null,
     params: { temperature, tint },
-    asShotTemperature: AS_SHOT,
+    asShotTemperature: asShot,
     histogram: histogram ? {} : null,
     setParam: (key, value) => {
       calls.push({ setParam: key, value });
@@ -85,7 +112,7 @@ export function fakeApi({ histogram = true, temperature = AS_SHOT, tint = 0 } = 
     },
     resetParams: async (keys, label) => {
       calls.push({ resetParams: keys, label });
-      set({ params: { temperature: AS_SHOT, tint: 0 } });
+      set({ params: { temperature: asShot, tint: 0 } });
     },
   }));
 
@@ -102,6 +129,11 @@ export function fakeApi({ histogram = true, temperature = AS_SHOT, tint = 0 } = 
   function AutoButton(props: AutoButtonProps) {
     lastAuto = props;
     return React.createElement("button", { type: "button", disabled: props.disabled, onClick: props.onClick }, "Auto");
+  }
+
+  function Select(props: SelectProps) {
+    lastSelect = props;
+    return React.createElement("div", { "data-select": props.value }, props.value);
   }
 
   const PickerIcon = () => React.createElement("svg", { "data-testid": "picker-icon" });
@@ -130,11 +162,15 @@ export function fakeApi({ histogram = true, temperature = AS_SHOT, tint = 0 } = 
         };
       },
       autoAdjust: {
-        whiteBalance: async () => void autos.push("whiteBalance"),
+        whiteBalance: async () => {
+          autos.push("whiteBalance");
+          develop.setState((s) => ({ params: { ...s.params, ...AUTO_RESULT } }));
+        },
         whiteBalanceAt: async (point) => void autos.push({ whiteBalanceAt: point }),
       },
     },
-    ui: { tokens: TOKENS },
+    catalog: { useActivePhoto: () => active },
+    ui: { tokens: TOKENS, Select },
   };
 
   return {
@@ -155,6 +191,10 @@ export function fakeApi({ histogram = true, temperature = AS_SHOT, tint = 0 } = 
     auto: () => {
       if (!lastAuto) throw new Error("AutoButton has not rendered");
       return lastAuto;
+    },
+    select: () => {
+      if (!lastSelect) throw new Error("Select has not rendered");
+      return lastSelect;
     },
     mask,
   };

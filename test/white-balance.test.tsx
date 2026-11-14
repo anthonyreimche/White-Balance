@@ -1,8 +1,11 @@
 // What activate() registers, the stage every line carries, and the panel: the
 // Picker holds the canvas's pick tool and hands its press to core's eyedropper
 // run, Auto runs core's grey-world balance, both wait for a frame, and the
-// sliders write Temp and Tint around the photo's as-shot temperature. The mask
-// instance shifts the mask's own relative Temp and Tint.
+// sliders write Temp and Tint around the photo's as-shot temperature. The
+// preset menu writes a camera's, a DNG's or the as-shot values as one step, and
+// shows which entry the values equal; a rendered photo gets a relative Temp;
+// the as-shot line reads the photo's as-shot Kelvin and EXIF white balance. The
+// mask instance shifts the mask's own relative Temp and Tint.
 
 import { createHash } from "node:crypto";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
@@ -13,7 +16,7 @@ import type { Line, ProcessingStageContribution } from "../src/safelight";
 import { STAGE_ID, whiteBalanceStage } from "../src/stages";
 import { EYEDROPPER, WHITE_BALANCE_MASK_PANEL, WhiteBalancePanel } from "../src/WhiteBalancePanel";
 import manifest from "../safelight.json";
-import { AS_SHOT, fakeApi } from "./support/fake-api";
+import { AS_SHOT, AUTO_RESULT, Z6_RAW, fakeApi } from "./support/fake-api";
 
 /** The app's hash of this stage's text (src/rendering/webgl/essential-stages.test.ts). */
 const LINE_HASH = "3d219c7b3496d44c42b88403910030e33bb3ce40aaab9411e1846d661ae4c998";
@@ -140,6 +143,148 @@ describe("the White Balance panel", () => {
   });
 });
 
+describe("the sliders", () => {
+  it("draw plain tracks", () => {
+    const { rig, view } = panel();
+    expect(rig.sliders(view.container).map((s) => s.trackBackground)).toEqual([undefined, undefined]);
+  });
+
+  it("run core's Auto on Shift+double-click", async () => {
+    const { rig, view } = panel();
+    const [temp, tint] = rig.sliders(view.container);
+    await act(async () => temp.onAuto?.());
+    await act(async () => tint.onAuto?.());
+    expect(rig.autos).toEqual(["whiteBalance", "whiteBalance"]);
+  });
+
+  it("offer no Shift+double-click Auto until a frame has rendered", () => {
+    const { rig, view } = panel({ histogram: false });
+    expect(rig.sliders(view.container).map((s) => s.onAuto)).toEqual([undefined, undefined]);
+  });
+
+  it("give a rendered photo a relative Temp, one mired a step, still stored in Kelvin", () => {
+    const { rig, view } = panel({ photo: { filename: "IMG_0001.jpg", exif: {} }, asShot: 6500, temperature: 6500 });
+    const [temp] = rig.sliders(view.container);
+    expect(temp).toMatchObject({ label: "Temp", value: 0, min: -100, max: 100, step: 1, defaultValue: 0 });
+    act(() => temp.onChange(100));
+    const write = rig.calls[0];
+    expect(write).toMatchObject({ setParam: "temperature" });
+    expect("value" in write && write.value).toBeCloseTo(18571.43, 2);
+    expect(rig.sliders(view.container)[0].value).toBe(100);
+  });
+});
+
+const entries = (rig: ReturnType<typeof fakeApi>) =>
+  rig.select().groups?.flatMap((g) => g.items.map((i) => ({ group: g.title, ...i }))) ?? [];
+
+describe("the preset menu", () => {
+  it("offers As Shot, Auto, the camera's own presets under its name, and Custom", () => {
+    const { rig } = panel();
+    const items = entries(rig);
+    expect(items.slice(0, 2).map((i) => i.label)).toEqual(["As Shot", "Auto"]);
+    expect(items.filter((i) => i.group === "Nikon Z 6").map((i) => i.label).slice(0, 3)).toEqual([
+      "Direct Sunlight",
+      "Cloudy",
+      "Shade",
+    ]);
+    expect(items.at(-1)).toMatchObject({ value: "custom", label: "Custom", disabled: true });
+  });
+
+  it("writes a preset's Temp and Tint as one step", () => {
+    const { rig } = panel();
+    act(() => rig.select().onChange("preset:Cool White Fluorescent"));
+    expect(rig.calls).toEqual([
+      { setParam: "temperature", value: 5770 },
+      { setParam: "tint", value: 22 },
+      { commitEdit: "White Balance: Cool White Fluorescent" },
+    ]);
+    expect(rig.select().value).toBe("preset:Cool White Fluorescent");
+  });
+
+  it("measures a preset's Tint against the camera's as-shot multipliers", () => {
+    const { rig } = panel({ photo: { ...Z6_RAW, exif: { ...Z6_RAW.exif, asShotMultipliers: [1.623, 1, 1.9531] } } });
+    act(() => rig.select().onChange("preset:Direct Sunlight"));
+    expect(rig.calls.slice(0, 2)).toEqual([
+      { setParam: "temperature", value: 7350 },
+      { setParam: "tint", value: -24 },
+    ]);
+  });
+
+  it("goes back to the as-shot values", () => {
+    const { rig } = panel({ temperature: 8000, tint: 12 });
+    expect(rig.select().value).toBe("custom");
+    act(() => rig.select().onChange("as-shot"));
+    expect(rig.calls).toEqual([
+      { setParam: "temperature", value: AS_SHOT },
+      { setParam: "tint", value: 0 },
+      { commitEdit: "White Balance: As Shot" },
+    ]);
+    expect(rig.select().value).toBe("as-shot");
+  });
+
+  it("runs core's Auto, then shows Auto until the values move", async () => {
+    const { rig, view } = panel();
+    await act(async () => rig.select().onChange("auto"));
+    expect(rig.autos).toEqual(["whiteBalance"]);
+    expect(rig.develop.getState().params).toMatchObject(AUTO_RESULT);
+    expect(rig.select().value).toBe("auto");
+    act(() => rig.sliders(view.container)[1].onChange(AUTO_RESULT.tint + 1));
+    expect(rig.select().value).toBe("custom");
+  });
+
+  it("keeps showing Custom when Auto changes nothing", async () => {
+    const { rig } = panel({ ...AUTO_RESULT });
+    await act(async () => rig.select().onChange("auto"));
+    expect(rig.autos).toEqual(["whiteBalance"]);
+    expect(rig.select().value).toBe("custom");
+  });
+
+  it("disables Auto until a frame has rendered", () => {
+    const { rig } = panel({ histogram: false });
+    expect(entries(rig).find((i) => i.value === "auto")?.disabled).toBe(true);
+  });
+
+  it("says when the camera is not in the table", () => {
+    const { rig } = panel({ photo: { filename: "X.NEF", exif: { cameraMake: "Acme", cameraModel: "One", colorTemperature: AS_SHOT } } });
+    expect(entries(rig).find((i) => i.value === "none")).toMatchObject({ label: "No presets for this camera", disabled: true });
+  });
+
+  it("offers a DNG the standard presets", () => {
+    const { rig } = panel({ photo: { filename: "L1.DNG", exif: { colorTemperature: 5430 } }, asShot: 5430, temperature: 5430 });
+    act(() => rig.select().onChange("preset:Shade"));
+    expect(rig.calls).toEqual([
+      { setParam: "temperature", value: 7500 },
+      { setParam: "tint", value: 0 },
+      { commitEdit: "White Balance: Shade" },
+    ]);
+  });
+
+  it("offers a rendered photo As Shot and Auto only", () => {
+    const { rig } = panel({ photo: { filename: "IMG.jpg", exif: {} }, asShot: 6500, temperature: 6500 });
+    expect(entries(rig).map((i) => i.value)).toEqual(["as-shot", "auto", "custom"]);
+  });
+});
+
+describe("the as-shot line", () => {
+  it("reads a RAW's as-shot Kelvin and its EXIF white balance", () => {
+    panel();
+    expect(screen.getByText(`As shot ${AS_SHOT} K · Auto`)).toBeTruthy();
+  });
+
+  it("reads the Kelvin alone when the EXIF has no white balance", () => {
+    panel({ photo: { ...Z6_RAW, exif: { ...Z6_RAW.exif, whiteBalance: undefined } } });
+    expect(screen.getByText(`As shot ${AS_SHOT} K`)).toBeTruthy();
+  });
+
+  it("reads only the EXIF white balance on a rendered photo, and nothing without it", () => {
+    panel({ photo: { filename: "IMG.jpg", exif: { whiteBalance: "Daylight" } }, asShot: 6500 });
+    expect(screen.getByText("As shot · Daylight")).toBeTruthy();
+    cleanup();
+    panel({ photo: { filename: "IMG.jpg", exif: {} }, asShot: 6500 });
+    expect(screen.queryByText(/As shot/)).toBeNull();
+  });
+});
+
 describe("the mask instance", () => {
   it("shifts the mask's relative Temp and Tint, and commits under the mask", () => {
     const rig = fakeApi();
@@ -156,5 +301,13 @@ describe("the mask instance", () => {
     expect(rig.mask.adj).toEqual({ temperature: 30, tint: 0 });
     expect(rig.mask.commits).toEqual(["Mask Temp"]);
     expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("draws plain tracks", () => {
+    const rig = fakeApi();
+    initRuntime(rig.api);
+    const Mask = WHITE_BALANCE_MASK_PANEL.component;
+    const view = render(<Mask />);
+    expect(rig.sliders(view.container).map((s) => s.trackBackground)).toEqual([undefined, undefined]);
   });
 });

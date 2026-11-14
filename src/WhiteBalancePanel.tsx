@@ -3,13 +3,22 @@
 // attribution-preservation term (GPL v3 §7b) — see LICENSE. This notice must
 // be preserved in derived versions.
 
-// The Develop "White Balance" panel: the eyedropper (Picker), Auto, and the
-// Temp and Tint sliders; and its per-mask instance, relative warm/cool and
-// magenta/green shifts. Picker and Auto act on the whole photo, so the mask
-// instance has neither, and both wait for the first rendered frame.
+// The Develop "White Balance" panel: the eyedropper (Picker), Auto, the preset
+// menu, the Temp and Tint sliders and the as-shot line; and its per-mask
+// instance, relative warm/cool and magenta/green shifts. Picker and Auto act on
+// the whole photo, so the mask instance has neither, and both wait for the
+// first rendered frame. presets.ts decides what the menu offers.
 
 import { React, api } from "./rt";
-import type { MaskPanelContribution, PickDragTool } from "./safelight";
+import type { MaskPanelContribution, PickDragTool, SelectGroup } from "./safelight";
+import {
+  kelvinForRelative,
+  photoKind,
+  presetMenu,
+  relativeTemp,
+  selectedEntry,
+  type PhotoKind,
+} from "./presets";
 import { cls } from "./styles";
 
 /** The eyedropper: the press makes that point of the image neutral, then the
@@ -21,8 +30,17 @@ export const EYEDROPPER: PickDragTool = {
   },
 };
 
+/** What Auto last set on each photo this session, so the menu can show Auto. */
+const autoResults = new Map<string, { temperature: number; tint: number }>();
+
+function asShotLine(kind: PhotoKind, asShot: number, mode: string | undefined): string | null {
+  if (kind === "rendered") return mode ? `As shot · ${mode}` : null;
+  return mode ? `As shot ${asShot} K · ${mode}` : `As shot ${asShot} K`;
+}
+
 export function WhiteBalancePanel() {
   const { Panel, Slider, PickerIcon, AutoButton } = api.components;
+  const { Select } = api.ui;
   const useDevelopStore = api.stores.useDevelopStore;
   const temperature = useDevelopStore((s) => s.params.temperature);
   const tint = useDevelopStore((s) => s.params.tint);
@@ -31,6 +49,58 @@ export function WhiteBalancePanel() {
   const hasHistogram = useDevelopStore((s) => s.histogram != null);
   const asShotTemperature = useDevelopStore((s) => s.asShotTemperature);
   const picking = api.develop.usePickDragHeld();
+  const photo = api.catalog.useActivePhoto();
+  const [, noteAuto] = React.useReducer((n: number) => n + 1, 0);
+
+  const kind = photoKind(photo);
+  const menu = React.useMemo(() => presetMenu(photo), [photo]);
+  const auto = photo ? (autoResults.get(photo.id) ?? null) : null;
+  const entry = selectedEntry({ temperature, tint }, asShotTemperature, menu.presets, auto);
+  const line = asShotLine(kind, asShotTemperature, photo?.exif.whiteBalance);
+
+  const runAuto = async () => {
+    if (!hasHistogram) return;
+    const before = useDevelopStore.getState();
+    await api.develop.autoAdjust.whiteBalance();
+    const after = useDevelopStore.getState();
+    const { temperature: t, tint: g } = after.params;
+    const moved = t !== before.params.temperature || g !== before.params.tint;
+    if (!before.photoId || after.photoId !== before.photoId || !moved) return;
+    autoResults.set(before.photoId, { temperature: t, tint: g });
+    noteAuto();
+  };
+  const onAuto = hasHistogram ? () => void runAuto() : undefined;
+
+  const apply = (label: string, nextTemperature: number, nextTint: number) => {
+    setParam("temperature", nextTemperature);
+    setParam("tint", nextTint);
+    void commitEdit(`White Balance: ${label}`);
+  };
+
+  const choose = (value: string) => {
+    if (value === "auto") return void runAuto();
+    if (value === "as-shot") return apply("As Shot", asShotTemperature, 0);
+    const chosen = menu.presets.find((p) => p.id === value);
+    if (chosen) apply(chosen.label, chosen.temperature, chosen.tint);
+  };
+
+  const groups: SelectGroup[] = [
+    {
+      items: [
+        { value: "as-shot", label: "As Shot" },
+        { value: "auto", label: "Auto", disabled: !hasHistogram },
+      ],
+    },
+  ];
+  if (menu.presets.length > 0) {
+    groups.push({ title: menu.title, items: menu.presets.map((p) => ({ value: p.id, label: p.label })) });
+  }
+  if (menu.missing) {
+    groups.push({ items: [{ value: "none", label: "No presets for this camera", disabled: true }] });
+  }
+  groups.push({ items: [{ value: "custom", label: "Custom", disabled: true }] });
+
+  const relative = kind === "rendered";
 
   return (
     <Panel title="White Balance">
@@ -46,23 +116,37 @@ export function WhiteBalancePanel() {
           <PickerIcon />
           Picker
         </button>
-        <AutoButton
-          onClick={() => void api.develop.autoAdjust.whiteBalance()}
-          disabled={!hasHistogram}
-          title="Auto white balance (grey-world)"
-        />
+        <AutoButton onClick={() => void runAuto()} disabled={!hasHistogram} title="Auto white balance (grey-world)" />
+      </div>
+      <div className={cls.preset}>
+        <Select value={entry} onChange={choose} groups={groups} ariaLabel="White balance preset" />
       </div>
       <div className={cls.sliders}>
-        <Slider
-          label="Temp"
-          value={temperature}
-          min={2000}
-          max={50000}
-          step={10}
-          defaultValue={asShotTemperature}
-          onChange={(v) => setParam("temperature", v)}
-          onCommit={() => void commitEdit("Temperature")}
-        />
+        {relative ? (
+          <Slider
+            label="Temp"
+            value={relativeTemp(temperature, asShotTemperature)}
+            min={-100}
+            max={100}
+            step={1}
+            defaultValue={0}
+            onChange={(v) => setParam("temperature", kelvinForRelative(v, asShotTemperature))}
+            onCommit={() => void commitEdit("Temperature")}
+            onAuto={onAuto}
+          />
+        ) : (
+          <Slider
+            label="Temp"
+            value={temperature}
+            min={2000}
+            max={50000}
+            step={10}
+            defaultValue={asShotTemperature}
+            onChange={(v) => setParam("temperature", v)}
+            onCommit={() => void commitEdit("Temperature")}
+            onAuto={onAuto}
+          />
+        )}
         <Slider
           label="Tint"
           value={tint}
@@ -71,8 +155,10 @@ export function WhiteBalancePanel() {
           defaultValue={0}
           onChange={(v) => setParam("tint", v)}
           onCommit={() => void commitEdit("Tint")}
+          onAuto={onAuto}
         />
       </div>
+      {line && <p className={cls.asShot}>{line}</p>}
     </Panel>
   );
 }
