@@ -11,7 +11,7 @@
 // source is not on the type path; React types come from @types/react (dev
 // only).
 
-import type { ComponentType, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ComponentType, CSSProperties, ReactNode } from "react";
 
 /** A release line: the process version its stage text was written for, and
  *  the extension's major version. */
@@ -92,6 +92,8 @@ export interface PanelContribution {
   title: string;
   component: ComponentType;
   defaultDock?: PanelDockDefault;
+  /** The modules the panel may be docked in; omitted, every module (Safelight 3.2.8). */
+  modules?: readonly string[];
   /** Right-clicking the panel's dock header offers "Reset to defaults". */
   onReset?: () => void;
   mask?: MaskPanelContribution;
@@ -136,6 +138,24 @@ export interface StylesheetContribution {
 }
 
 /** The theme's CSS variables as `var(--color-…)` strings. */
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "primary" | "secondary" | "ghost" | "danger";
+  size?: "sm" | "md";
+  /** Render as the selected/active state (accent fill), overriding the variant. */
+  active?: boolean;
+  /** Stretch to the container width. */
+  full?: boolean;
+}
+
+export interface RowProps {
+  children: ReactNode;
+  gap?: number;
+  align?: CSSProperties["alignItems"];
+  justify?: CSSProperties["justifyContent"];
+  wrap?: boolean;
+  style?: CSSProperties;
+}
+
 export interface UiTokens {
   readonly border: string;
   readonly borderSubtle: string;
@@ -230,7 +250,7 @@ export interface SafelightAPI {
     Panel: ComponentType<PanelProps>;
     Slider: ComponentType<SliderProps>;
     /** The eyedropper icon core's pickers show. */
-    PickerIcon: ComponentType;
+    PickerIcon: ComponentType<{ size?: number }>;
     /** The develop panels' small Auto button. */
     AutoButton: ComponentType<AutoButtonProps>;
   };
@@ -260,6 +280,8 @@ export interface SafelightAPI {
     tokens: UiTokens;
     /** Core's themed dropdown, full width. */
     Select: ComponentType<SelectProps>;
+    Button: (props: ButtonProps) => JSX.Element;
+    Row: (props: RowProps) => JSX.Element;
   };
 }
 

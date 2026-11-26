@@ -1,7 +1,7 @@
 {
   "id": "safelight.white-balance",
   "name": "White Balance",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "Temperature and tint, with an eyedropper, Auto, and presets from your camera.",
   "author": "Anthony Reimche",
   "main": "dist/index.js",

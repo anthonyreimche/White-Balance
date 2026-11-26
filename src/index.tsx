@@ -29,6 +29,7 @@ export function activate(host: SafelightAPI): void {
     title: "White Balance",
     component: WhiteBalancePanel,
     defaultDock: { module: "develop", direction: "right", order: 4, width: 280, height: 120 },
+    modules: ["develop"],
     onReset: () => void host.stores.useDevelopStore.getState().resetParams(["temperature", "tint"], "Reset White Balance"),
     mask: WHITE_BALANCE_MASK_PANEL,
   });

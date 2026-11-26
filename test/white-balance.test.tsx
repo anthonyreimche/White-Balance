@@ -54,6 +54,7 @@ describe("activate", () => {
         title: "White Balance",
         component: WhiteBalancePanel,
         defaultDock: { module: "develop", direction: "right", order: 4, width: 280, height: 120 },
+        modules: ["develop"],
         onReset: expect.any(Function),
         mask: WHITE_BALANCE_MASK_PANEL,
       },
@@ -96,6 +97,14 @@ describe("the White Balance panel", () => {
     expect(picker().getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(picker());
     expect(rig.held()).toBeNull();
+  });
+
+  it("draws Picker as the app's small button, lit while it is on", () => {
+    panel();
+    expect(picker().dataset.kit).toBe("button");
+    expect(picker().dataset.active).toBeUndefined();
+    fireEvent.click(picker());
+    expect(picker().dataset.active).toBe("true");
   });
 
   it("makes the pressed point neutral through core, and puts the eyedropper down", () => {

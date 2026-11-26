@@ -28,8 +28,6 @@ function i(e) {
 //#region src/styles.ts
 var a = "safelight-white-balance", o = {
 	toolbar: `${a}-toolbar`,
-	picker: `${a}-picker`,
-	on: `${a}-on`,
 	preset: `${a}-preset`,
 	sliders: `${a}-sliders`,
 	asShot: `${a}-as-shot`
@@ -37,16 +35,10 @@ var a = "safelight-white-balance", o = {
 function s(e) {
 	return `
 :where(.${o.toolbar}) { margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between; }
-:where(.${o.picker}) { display: flex; align-items: center; gap: 0.25rem; border-radius: 0.25rem; border: 1px solid ${e.borderSubtle}; padding: 0.125rem 0.5rem; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: ${e.textSecondary}; }
-:where(.${o.picker}:hover) { border-color: ${e.border}; color: ${e.textPrimary}; }
-:where(.${o.picker}.${o.on}) { border-color: ${e.accent}; background-color: color-mix(in srgb, ${e.accent} 30%, transparent); color: ${e.textPrimary}; }
-:where(.${o.picker}:disabled) { cursor: default; opacity: 0.4; }
 :where(.${o.sliders} > :not(:last-child)) { margin-block: 0 0.125rem; }
 :where(.${o.preset}) { margin-bottom: 0.5rem; }
 :where(.${o.asShot}) { margin: 0.25rem 0 0; font-size: 10px; color: ${e.textSecondary}; }
 html.sl-larger-text .${o.asShot} { font-size: 12px !important; }
-html.sl-larger-text .${o.picker} { font-size: 12px !important; text-transform: none !important; letter-spacing: normal !important; }
-html.sl-title-headings .${o.picker} { text-transform: capitalize !important; }
 `;
 }
 //#endregion
@@ -20444,95 +20436,98 @@ function J(e, t, n) {
 	return e === "rendered" ? n ? `As shot · ${n}` : null : n ? `As shot ${t} K · ${n}` : `As shot ${t} K`;
 }
 function Y() {
-	let { Panel: n, Slider: r, PickerIcon: i, AutoButton: a } = t.components, { Select: s } = t.ui, c = t.stores.useDevelopStore, l = c((e) => e.params.temperature), u = c((e) => e.params.tint), d = c((e) => e.setParam), f = c((e) => e.commitEdit), p = c((e) => e.histogram != null), m = c((e) => e.asShotTemperature), h = t.develop.usePickDragHeld(), g = t.catalog.useActivePhoto(), [, _] = e.useReducer((e) => e + 1, 0), v = D(g), y = e.useMemo(() => z(g), [g]), b = g ? q.get(g.id) ?? null : null, x = V({
-		temperature: l,
-		tint: u
-	}, m, y.presets, b), S = J(v, m, g?.exif.whiteBalance), C = async () => {
-		if (!p) return;
-		let e = c.getState();
+	let { Panel: n, Slider: r, PickerIcon: i, AutoButton: a } = t.components, { Button: s, Row: c, Select: l } = t.ui, u = t.stores.useDevelopStore, d = u((e) => e.params.temperature), f = u((e) => e.params.tint), p = u((e) => e.setParam), m = u((e) => e.commitEdit), h = u((e) => e.histogram != null), g = u((e) => e.asShotTemperature), _ = t.develop.usePickDragHeld(), v = t.catalog.useActivePhoto(), [, y] = e.useReducer((e) => e + 1, 0), b = D(v), x = e.useMemo(() => z(v), [v]), S = v ? q.get(v.id) ?? null : null, C = V({
+		temperature: d,
+		tint: f
+	}, g, x.presets, S), w = J(b, g, v?.exif.whiteBalance), T = async () => {
+		if (!h) return;
+		let e = u.getState();
 		await t.develop.autoAdjust.whiteBalance();
-		let n = c.getState(), { temperature: r, tint: i } = n.params, a = r !== e.params.temperature || i !== e.params.tint;
+		let n = u.getState(), { temperature: r, tint: i } = n.params, a = r !== e.params.temperature || i !== e.params.tint;
 		e.photoId && n.photoId === e.photoId && a && (q.set(e.photoId, {
 			temperature: r,
 			tint: i
-		}), _());
-	}, w = p ? () => void C() : void 0, T = (e, t, n) => {
-		d("temperature", t), d("tint", n), f(`White Balance: ${e}`);
-	}, E = (e) => {
-		if (e === "auto") return void C();
-		if (e === "as-shot") return T("As Shot", m, 0);
-		let t = y.presets.find((t) => t.id === e);
-		t && T(t.label, t.temperature, t.tint);
-	}, O = [{ items: [{
+		}), y());
+	}, E = h ? () => void T() : void 0, O = (e, t, n) => {
+		p("temperature", t), p("tint", n), m(`White Balance: ${e}`);
+	}, k = (e) => {
+		if (e === "auto") return void T();
+		if (e === "as-shot") return O("As Shot", g, 0);
+		let t = x.presets.find((t) => t.id === e);
+		t && O(t.label, t.temperature, t.tint);
+	}, A = [{ items: [{
 		value: "as-shot",
 		label: "As Shot"
 	}, {
 		value: "auto",
 		label: "Auto",
-		disabled: !p
+		disabled: !h
 	}] }];
-	y.presets.length > 0 && O.push({
-		title: y.title,
-		items: y.presets.map((e) => ({
+	x.presets.length > 0 && A.push({
+		title: x.title,
+		items: x.presets.map((e) => ({
 			value: e.id,
 			label: e.label
 		}))
-	}), y.missing && O.push({ items: [{
+	}), x.missing && A.push({ items: [{
 		value: "none",
 		label: "No presets for this camera",
 		disabled: !0
-	}] }), O.push({ items: [{
+	}] }), A.push({ items: [{
 		value: "custom",
 		label: "Custom",
 		disabled: !0
 	}] });
-	let k = v === "rendered";
-	return /* @__PURE__ */ e.createElement(n, { title: "White Balance" }, /* @__PURE__ */ e.createElement("div", { className: o.toolbar }, /* @__PURE__ */ e.createElement("button", {
-		type: "button",
-		onClick: () => t.develop.setPickDrag(h ? null : K),
-		disabled: !p,
+	let j = b === "rendered";
+	return /* @__PURE__ */ e.createElement(n, { title: "White Balance" }, /* @__PURE__ */ e.createElement("div", { className: o.toolbar }, /* @__PURE__ */ e.createElement(s, {
+		size: "sm",
+		active: _,
+		onClick: () => t.develop.setPickDrag(_ ? null : K),
+		disabled: !h,
 		title: "White balance selector — click a neutral grey in the image",
-		"aria-pressed": h,
-		className: `${o.picker}${h ? ` ${o.on}` : ""}`
-	}, /* @__PURE__ */ e.createElement(i, null), "Picker"), /* @__PURE__ */ e.createElement(a, {
-		onClick: () => void C(),
-		disabled: !p,
+		"aria-pressed": _
+	}, /* @__PURE__ */ e.createElement(c, {
+		gap: 4,
+		align: "center"
+	}, /* @__PURE__ */ e.createElement(i, { size: 12 }), "Picker")), /* @__PURE__ */ e.createElement(a, {
+		onClick: () => void T(),
+		disabled: !h,
 		title: "Auto white balance (grey-world)"
-	})), /* @__PURE__ */ e.createElement("div", { className: o.preset }, /* @__PURE__ */ e.createElement(s, {
-		value: x,
-		onChange: E,
-		groups: O,
+	})), /* @__PURE__ */ e.createElement("div", { className: o.preset }, /* @__PURE__ */ e.createElement(l, {
+		value: C,
+		onChange: k,
+		groups: A,
 		ariaLabel: "White balance preset"
-	})), /* @__PURE__ */ e.createElement("div", { className: o.sliders }, k ? /* @__PURE__ */ e.createElement(r, {
+	})), /* @__PURE__ */ e.createElement("div", { className: o.sliders }, j ? /* @__PURE__ */ e.createElement(r, {
 		label: "Temp",
-		value: W(l, m),
+		value: W(d, g),
 		min: -100,
 		max: 100,
 		step: 1,
 		defaultValue: 0,
-		onChange: (e) => d("temperature", G(e, m)),
-		onCommit: () => void f("Temperature"),
-		onAuto: w
+		onChange: (e) => p("temperature", G(e, g)),
+		onCommit: () => void m("Temperature"),
+		onAuto: E
 	}) : /* @__PURE__ */ e.createElement(r, {
 		label: "Temp",
-		value: l,
+		value: d,
 		min: 2e3,
 		max: 5e4,
 		step: 10,
-		defaultValue: m,
-		onChange: (e) => d("temperature", e),
-		onCommit: () => void f("Temperature"),
-		onAuto: w
+		defaultValue: g,
+		onChange: (e) => p("temperature", e),
+		onCommit: () => void m("Temperature"),
+		onAuto: E
 	}), /* @__PURE__ */ e.createElement(r, {
 		label: "Tint",
-		value: u,
+		value: f,
 		min: -150,
 		max: 150,
 		defaultValue: 0,
-		onChange: (e) => d("tint", e),
-		onCommit: () => void f("Tint"),
-		onAuto: w
-	})), S && /* @__PURE__ */ e.createElement("p", { className: o.asShot }, S));
+		onChange: (e) => p("tint", e),
+		onCommit: () => void m("Tint"),
+		onAuto: E
+	})), w && /* @__PURE__ */ e.createElement("p", { className: o.asShot }, w));
 }
 function X() {
 	let { Slider: n } = t.components, r = t.develop.useMaskScope();
@@ -20576,6 +20571,7 @@ function te(e) {
 			width: 280,
 			height: 120
 		},
+		modules: ["develop"],
 		onReset: () => void e.stores.useDevelopStore.getState().resetParams(["temperature", "tint"], "Reset White Balance"),
 		mask: Z
 	});

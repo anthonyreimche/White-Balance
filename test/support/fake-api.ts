@@ -17,10 +17,12 @@ import type {
   DevelopStoreState,
   MaskScope,
   PanelContribution,
+  ButtonProps,
   PanelProps,
   PickDragTool,
   ProcessingStageContribution,
   SafelightAPI,
+  RowProps,
   SelectProps,
   SliderProps,
   StoreApi,
@@ -136,6 +138,14 @@ export function fakeApi({
     return React.createElement("div", { "data-select": props.value }, props.value);
   }
 
+  function Button({ variant, size, active, full, ...rest }: ButtonProps) {
+    return React.createElement("button", { type: "button", "data-kit": "button", "data-active": active ? "true" : undefined, ...rest });
+  }
+
+  function Row({ children }: RowProps) {
+    return React.createElement("span", { "data-kit": "row" }, children);
+  }
+
   const PickerIcon = () => React.createElement("svg", { "data-testid": "picker-icon" });
 
   const api: SafelightAPI = {
@@ -170,7 +180,7 @@ export function fakeApi({
       },
     },
     catalog: { useActivePhoto: () => active },
-    ui: { tokens: TOKENS, Select },
+    ui: { tokens: TOKENS, Select, Button, Row },
   };
 
   return {

@@ -40,7 +40,7 @@ function asShotLine(kind: PhotoKind, asShot: number, mode: string | undefined): 
 
 export function WhiteBalancePanel() {
   const { Panel, Slider, PickerIcon, AutoButton } = api.components;
-  const { Select } = api.ui;
+  const { Button, Row, Select } = api.ui;
   const useDevelopStore = api.stores.useDevelopStore;
   const temperature = useDevelopStore((s) => s.params.temperature);
   const tint = useDevelopStore((s) => s.params.tint);
@@ -105,17 +105,19 @@ export function WhiteBalancePanel() {
   return (
     <Panel title="White Balance">
       <div className={cls.toolbar}>
-        <button
-          type="button"
+        <Button
+          size="sm"
+          active={picking}
           onClick={() => api.develop.setPickDrag(picking ? null : EYEDROPPER)}
           disabled={!hasHistogram}
           title="White balance selector — click a neutral grey in the image"
           aria-pressed={picking}
-          className={`${cls.picker}${picking ? ` ${cls.on}` : ""}`}
         >
-          <PickerIcon />
-          Picker
-        </button>
+          <Row gap={4} align="center">
+            <PickerIcon size={12} />
+            Picker
+          </Row>
+        </Button>
         <AutoButton onClick={() => void runAuto()} disabled={!hasHistogram} title="Auto white balance (grey-world)" />
       </div>
       <div className={cls.preset}>
