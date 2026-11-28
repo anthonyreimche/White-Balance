@@ -1,13 +1,14 @@
 {
   "name": "safelight-white-balance",
   "private": true,
-  "version": "3.1.1",
+  "version": "3.2.0",
   "description": "White Balance extension for Safelight: temperature, tint, the eyedropper, Auto and camera presets.",
   "type": "module",
   "scripts": {
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:gpu": "node test/gpu/run.cjs",
     "check": "npm run typecheck && npm run build && npm test"
   },
   "devDependencies": {

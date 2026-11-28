@@ -13,7 +13,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { LINE, PANEL_ID, STYLESHEET_ID, activate } from "../src/index";
 import { React, initRuntime } from "../src/rt";
 import type { Line, ProcessingStageContribution } from "../src/safelight";
-import { STAGE_ID, whiteBalanceStage } from "../src/stages";
+import { ADAPTATION_KEY, STAGE_ID, adaptationStage, whiteBalanceStage } from "../src/stages";
 import { EYEDROPPER, WHITE_BALANCE_MASK_PANEL, WhiteBalancePanel } from "../src/WhiteBalancePanel";
 import manifest from "../safelight.json";
 import { AS_SHOT, AUTO_RESULT, Z6_RAW, fakeApi } from "./support/fake-api";
@@ -63,11 +63,14 @@ describe("activate", () => {
     expect(WHITE_BALANCE_MASK_PANEL).toMatchObject({ order: 20, owns: ["temperature", "tint"] });
   });
 
-  it("resets Temp and Tint as one step from the dock header", () => {
-    const rig = fakeApi({ temperature: 6100, tint: 20 });
+  it("resets Temp, Tint and the adaptation as one step from the dock header", () => {
+    const rig = fakeApi({ temperature: 6100, tint: 20, paramBag: { [ADAPTATION_KEY]: 1 } });
     activate(rig.api);
     rig.panels[0].onReset?.();
-    expect(rig.calls).toEqual([{ resetParams: ["temperature", "tint"], label: "Reset White Balance" }]);
+    expect(rig.calls).toEqual([
+      { setDynParams: { [ADAPTATION_KEY]: undefined } },
+      { resetParams: ["temperature", "tint"], label: "Reset White Balance" },
+    ]);
   });
 
   it("registers the stage of its line and its stylesheet", () => {
@@ -75,7 +78,7 @@ describe("activate", () => {
     activate(rig.api);
     expect(LINE).toBe(Number(manifest.version.split(".")[0]));
     expect(LINE).toBe(3);
-    expect(rig.stages.map(text)).toEqual([text(whiteBalanceStage(LINE))]);
+    expect(rig.stages.map(text)).toEqual([text(whiteBalanceStage(LINE)), text(adaptationStage())]);
     expect(rig.stylesheets.map((s) => s.id)).toEqual([STYLESHEET_ID]);
   });
 });
@@ -149,6 +152,47 @@ describe("the White Balance panel", () => {
       { setParam: "tint", value: -20 },
       { commitEdit: "Tint" },
     ]);
+  });
+});
+
+describe("the adaptation menu", () => {
+  const ADAPTATION_MENU = "White balance adaptation";
+
+  it("offers RGB gains, CAT16, Bradford and XYZ, at RGB gains on a photo that never chose", () => {
+    const { rig } = panel();
+    const menu = rig.select(ADAPTATION_MENU);
+    expect(menu.value).toBe("0");
+    expect(menu.options?.map((o) => [o.value, o.label])).toEqual([
+      ["0", "RGB gains"],
+      ["1", "CAT16"],
+      ["2", "Bradford"],
+      ["3", "XYZ"],
+    ]);
+    expect(menu.title).toBeTruthy();
+  });
+
+  it("shows the photo's choice", () => {
+    const { rig } = panel({ paramBag: { [ADAPTATION_KEY]: 2 } });
+    expect(rig.select(ADAPTATION_MENU).value).toBe("2");
+  });
+
+  it("writes the choice to the photo as one step", () => {
+    const { rig } = panel();
+    act(() => rig.select(ADAPTATION_MENU).onChange("1"));
+    expect(rig.calls).toEqual([{ setDynParams: { [ADAPTATION_KEY]: 1 } }, { commitEdit: "White Balance: CAT16" }]);
+    expect(rig.select(ADAPTATION_MENU).value).toBe("1");
+  });
+
+  it("writes RGB gains as a value, so a preset carries it", () => {
+    const { rig } = panel({ paramBag: { [ADAPTATION_KEY]: 3 } });
+    act(() => rig.select(ADAPTATION_MENU).onChange("0"));
+    expect(rig.calls).toEqual([{ setDynParams: { [ADAPTATION_KEY]: 0 } }, { commitEdit: "White Balance: RGB gains" }]);
+  });
+
+  it("writes nothing when the choice doesn't change", () => {
+    const { rig } = panel({ paramBag: { [ADAPTATION_KEY]: 1 } });
+    act(() => rig.select(ADAPTATION_MENU).onChange("1"));
+    expect(rig.calls).toEqual([]);
   });
 });
 

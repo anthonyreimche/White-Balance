@@ -4,11 +4,13 @@
 // be preserved in derived versions.
 
 // The Develop "White Balance" panel: the eyedropper (Picker), Auto, the preset
-// menu, the Temp and Tint sliders and the as-shot line; and its per-mask
-// instance, relative warm/cool and magenta/green shifts. Picker and Auto act on
-// the whole photo, so the mask instance has neither, and both wait for the
-// first rendered frame. presets.ts decides what the menu offers.
+// menu, the Temp and Tint sliders, the as-shot line and the adaptation menu
+// (docs/SPEC-3.2.0.md); and its per-mask instance, relative warm/cool and
+// magenta/green shifts. Picker and Auto act on the whole photo, so the mask
+// instance has neither, and both wait for the first rendered frame. presets.ts
+// decides what the preset menu offers.
 
+import { ADAPTATION, ADAPTATION_LABELS, asAdaptation, type Adaptation } from "./adaptation";
 import { React, api } from "./rt";
 import type { MaskPanelContribution, PickDragTool, SelectGroup } from "./safelight";
 import {
@@ -19,6 +21,7 @@ import {
   selectedEntry,
   type PhotoKind,
 } from "./presets";
+import { ADAPTATION_KEY } from "./stages";
 import { cls } from "./styles";
 
 /** The eyedropper: the press makes that point of the image neutral, then the
@@ -32,6 +35,14 @@ export const EYEDROPPER: PickDragTool = {
 
 /** What Auto last set on each photo this session, so the menu can show Auto. */
 const autoResults = new Map<string, { temperature: number; tint: number }>();
+
+const ADAPTATION_OPTIONS = Object.values(ADAPTATION).map((a: Adaptation) => ({
+  value: String(a),
+  label: ADAPTATION_LABELS[a],
+}));
+
+const ADAPTATION_TITLE =
+  "How the white balance changes colours: RGB gains scale each channel; CAT16, Bradford and XYZ adapt the light in a cone-response space and compress the gamut toward white";
 
 function asShotLine(kind: PhotoKind, asShot: number, mode: string | undefined): string | null {
   if (kind === "rendered") return mode ? `As shot · ${mode}` : null;
@@ -48,6 +59,8 @@ export function WhiteBalancePanel() {
   const commitEdit = useDevelopStore((s) => s.commitEdit);
   const hasHistogram = useDevelopStore((s) => s.histogram != null);
   const asShotTemperature = useDevelopStore((s) => s.asShotTemperature);
+  const adaptation = useDevelopStore((s) => asAdaptation(s.paramBag[ADAPTATION_KEY]));
+  const setDynParams = useDevelopStore((s) => s.setDynParams);
   const picking = api.develop.usePickDragHeld();
   const photo = api.catalog.useActivePhoto();
   const [, noteAuto] = React.useReducer((n: number) => n + 1, 0);
@@ -82,6 +95,13 @@ export function WhiteBalancePanel() {
     if (value === "as-shot") return apply("As Shot", asShotTemperature, 0);
     const chosen = menu.presets.find((p) => p.id === value);
     if (chosen) apply(chosen.label, chosen.temperature, chosen.tint);
+  };
+
+  const chooseAdaptation = (value: string) => {
+    const next = asAdaptation(Number(value));
+    if (next === adaptation) return;
+    setDynParams({ [ADAPTATION_KEY]: next });
+    void commitEdit(`White Balance: ${ADAPTATION_LABELS[next]}`);
   };
 
   const groups: SelectGroup[] = [
@@ -161,6 +181,15 @@ export function WhiteBalancePanel() {
         />
       </div>
       {line && <p className={cls.asShot}>{line}</p>}
+      <div className={cls.preset}>
+        <Select
+          value={String(adaptation)}
+          onChange={chooseAdaptation}
+          options={ADAPTATION_OPTIONS}
+          ariaLabel="White balance adaptation"
+          title={ADAPTATION_TITLE}
+        />
+      </div>
     </Panel>
   );
 }

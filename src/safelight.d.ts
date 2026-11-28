@@ -41,7 +41,11 @@ export interface DevelopStoreState {
   asShotTemperature: number;
   /** The last rendered frame's histogram; null before the first frame. */
   histogram: unknown | null;
+  /** The extensions' per-photo values, by qualified key ("{stageId}.{key}"). */
+  paramBag: Readonly<Record<string, unknown>>;
   setParam<K extends keyof DevelopParams>(key: K, value: DevelopParams[K]): void;
+  /** Writes bag values; an undefined value clears its key. */
+  setDynParams(patch: Record<string, unknown>): void;
   /** End a gesture: one undoable history step under `label`. */
   commitEdit(label: string): Promise<void>;
   /** Put `keys` back to their defaults as one undoable step under `label`. */
@@ -101,8 +105,9 @@ export interface PanelContribution {
 
 export interface UniformDeclaration {
   key: string;
-  glslType: "float";
+  glslType: "float" | "int";
   default: number;
+  label?: string;
 }
 
 export type StageValue = number;
@@ -128,8 +133,12 @@ export interface ProcessingStageContribution {
   uniforms: UniformDeclaration[];
   /** Textures the block samples (none here; part of a line's text). */
   textures?: { key: string; kind: "photo" }[];
-  /** The uniforms' values for a photo (official extensions only). */
+  /** The uniforms' values for a photo (official extensions only). Without it,
+   *  each uniform binds the photo's bag under "{id}.{key}". */
   derive?: StageDerive;
+  /** While every listed uniform holds its value here, the stage changes
+   *  nothing and is left out of the program (Safelight 3.2.1). */
+  dormantWhen?: Readonly<Record<string, number>>;
 }
 
 export interface StylesheetContribution {

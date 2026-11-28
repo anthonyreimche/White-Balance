@@ -22,11 +22,19 @@ eyedropper, Auto, and a preset menu with your camera's own presets.
   for Auto (Safelight 3.2.5 and later).
 - Under the sliders: the as-shot temperature and the camera's white balance
   setting, when the photo records them.
+- **Adaptation** (3.2.0), under the as-shot line: how Temp and Tint change
+  the colours. **RGB gains** (the default) scales red, green and blue, as
+  before. **CAT16**, **Bradford** and **XYZ** adapt the light in a
+  cone-response space instead, which keeps saturated colours truer under
+  strong corrections. They also gently compress the most saturated colours
+  toward white. Whatever you pick, the colour Temp and Tint make neutral is
+  still exactly neutral, so Picker, Auto and the presets work the same. Each
+  photo keeps its own choice, and presets, Copy and Paste carry it.
 - Masks get relative Temp and Tint shifts (−100 to 100) of their own.
 
 Picker and Auto wait for the photo's first rendered frame. Right-click the
 panel's header and choose **Reset to defaults** to put Temp and Tint back as
-one step.
+one step, with Adaptation back at RGB gains.
 
 Until Safelight 3.2.0 this panel was built in. It keeps the built-in panel's
 id (`core.white-balance`), so layouts saved before then keep it where it was,

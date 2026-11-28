@@ -4,86 +4,289 @@ function n(n) {
 	t = n, e = n.react;
 }
 //#endregion
+//#region src/adaptation.ts
+function r(e, t) {
+	return [
+		e[0] * t[0] + e[1] * t[1] + e[2] * t[2],
+		e[3] * t[0] + e[4] * t[1] + e[5] * t[2],
+		e[6] * t[0] + e[7] * t[1] + e[8] * t[2]
+	];
+}
+function i(e, t) {
+	let n = [];
+	for (let r = 0; r < 3; r++) for (let i = 0; i < 3; i++) n.push(e[r * 3] * t[i] + e[r * 3 + 1] * t[3 + i] + e[r * 3 + 2] * t[6 + i]);
+	return n;
+}
+function a(e) {
+	let [t, n, r, i, a, o, s, c, l] = e, u = a * l - o * c, d = o * s - i * l, f = i * c - a * s, p = t * u + n * d + r * f;
+	return [
+		u / p,
+		(r * c - n * l) / p,
+		(n * o - r * a) / p,
+		d / p,
+		(t * l - r * s) / p,
+		(r * i - t * o) / p,
+		f / p,
+		(n * s - t * c) / p,
+		(t * a - n * i) / p
+	];
+}
+var o = [.3127, .329];
+function s(e, t) {
+	let n = ([e, t]) => [
+		e / t,
+		1,
+		(1 - e - t) / t
+	], [i, o, s] = e.map(n), c = [
+		i[0],
+		o[0],
+		s[0],
+		i[1],
+		o[1],
+		s[1],
+		i[2],
+		o[2],
+		s[2]
+	], l = r(a(c), n(t));
+	return [
+		c[0] * l[0],
+		c[1] * l[1],
+		c[2] * l[2],
+		c[3] * l[0],
+		c[4] * l[1],
+		c[5] * l[2],
+		c[6] * l[0],
+		c[7] * l[1],
+		c[8] * l[2]
+	];
+}
+var c = s([
+	[.64, .33],
+	[.3, .6],
+	[.15, .06]
+], o);
+a(c);
+var l = s([
+	[.708, .292],
+	[.17, .797],
+	[.131, .046]
+], o), u = a(l), d = i(u, c), f = a(d), p = [
+	.401288,
+	.650173,
+	-.051461,
+	-.250268,
+	1.204414,
+	.045854,
+	-.002079,
+	.048952,
+	.953127
+], m = [
+	.8951,
+	.2664,
+	-.1614,
+	-.7502,
+	1.7135,
+	.0367,
+	.0389,
+	-.0685,
+	1.0296
+], h = a(p), g = a(m), _ = {
+	rgb: 0,
+	cat16: 1,
+	bradford: 2,
+	xyz: 3
+}, v = {
+	0: "RGB gains",
+	1: "CAT16",
+	2: "Bradford",
+	3: "XYZ"
+};
+function y(e) {
+	return e === 1 || e === 2 || e === 3 ? e : _.rgb;
+}
+var b = 152587890625e-16, x = r(c, [
+	1,
+	1,
+	1
+]);
+function S(e) {
+	let t = e[0] + 15 * e[1] + 3 * e[2];
+	return [4 * e[0] / t, 9 * e[1] / t];
+}
+var C = S(x);
+x[0] / (x[0] + 1 + x[2]), 1 / (x[0] + 1 + x[2]);
+//#endregion
 //#region src/stages.ts
-var r = (e) => ({
+var w = "safelight.white-balance.balance", T = (e) => ({
 	key: e,
 	glslType: "float",
 	default: 0
 });
-function i(e) {
+function E(e) {
 	return {
-		id: "safelight.white-balance.balance",
+		id: w,
 		name: "White Balance",
 		phase: "scene-linear",
 		anchor: "white-balance",
 		glsl: "lin = applyWhiteBalance(lin, uTemperature, uTint, uAsShotTemperature);",
-		uniforms: [r("uTemperature"), r("uTint")],
+		uniforms: [T("uTemperature"), T("uTint")],
 		derive: (e) => ({
 			uTemperature: e.temperature,
 			uTint: e.tint
 		})
 	};
 }
+var D = "safelight.white-balance.adapt", O = "uWbAdaptation", k = `${D}.${O}`;
+function A(e) {
+	let t = e.toPrecision(10);
+	return t.includes("e") || t.includes(".") ? t : `${t}.0`;
+}
+function j(e) {
+	return `mat3(${[
+		0,
+		3,
+		6,
+		1,
+		4,
+		7,
+		2,
+		5,
+		8
+	].map((t) => A(e[t])).join(", ")})`;
+}
+var M = `
+const mat3 WB_709_TO_2020 = ${j(d)};
+const mat3 WB_2020_TO_709 = ${j(f)};
+const mat3 WB_709_TO_XYZ = ${j(c)};
+const mat3 WB_2020_TO_XYZ = ${j(l)};
+const mat3 WB_XYZ_TO_2020 = ${j(u)};
+const mat3 WB_XYZ_TO_CAT16 = ${j(p)};
+const mat3 WB_CAT16_TO_XYZ = ${j(h)};
+const mat3 WB_XYZ_TO_BRADFORD = ${j(m)};
+const mat3 WB_BRADFORD_TO_XYZ = ${j(g)};
+const vec2 WB_WHITE_UV = vec2(${A(C[0])}, ${A(C[1])});
+const vec2 WB_WHITE_XY = vec2(${A(x[0] / (x[0] + 1 + x[2]))}, ${A(1 / (x[0] + 1 + x[2]))});
+const float WB_NORM_MIN = ${A(b)};
+
+mat3 wbToLms(int a) {
+  if (a == ${_.cat16}) return WB_XYZ_TO_CAT16;
+  if (a == ${_.bradford}) return WB_XYZ_TO_BRADFORD;
+  return mat3(1.0);
+}
+mat3 wbFromLms(int a) {
+  if (a == ${_.cat16}) return WB_CAT16_TO_XYZ;
+  if (a == ${_.bradford}) return WB_BRADFORD_TO_XYZ;
+  return mat3(1.0);
+}
+vec3 wbGamut(vec3 xyz) {
+  float total = xyz.x + xyz.y + xyz.z;
+  float Y = xyz.y;
+  vec2 xy = total > 0.0 ? xyz.xy / total : WB_WHITE_XY;
+  float uvDen = -2.0 * xy.x + 12.0 * xy.y + 3.0;
+  vec2 uv = vec2(4.0 * xy.x, 9.0 * xy.y) / uvDen;
+  vec2 d = WB_WHITE_UV - uv;
+  vec2 t = Y * dot(d, d) * d + uv;
+  uv.x = uv.x > WB_WHITE_UV.x ? max(t.x, WB_WHITE_UV.x) : min(t.x, WB_WHITE_UV.x);
+  uv.y = uv.y > WB_WHITE_UV.y ? max(t.y, WB_WHITE_UV.y) : min(t.y, WB_WHITE_UV.y);
+  float xyDen = 6.0 * uv.x - 16.0 * uv.y + 12.0;
+  xy = max(vec2(9.0 * uv.x, 4.0 * uv.y) / xyDen, 0.0);
+  xy.y = max(xy.y, WB_NORM_MIN);
+  float s = xy.x + xy.y;
+  if (s >= 1.0) xy /= s;
+  return vec3(Y * xy.x / xy.y, Y, Y * (1.0 - xy.x - xy.y) / xy.y);
+}
+vec3 wbAdapt(vec3 balanced, vec3 gains, int a) {
+  mat3 toLms = wbToLms(a);
+  mat3 fromLms = wbFromLms(a);
+  vec3 inv = 1.0 / gains;
+  vec3 light = inv / (WB_709_TO_XYZ * inv).y;
+  vec3 gain = (toLms * (WB_709_TO_XYZ * vec3(1.0))) / (toLms * (WB_709_TO_XYZ * light));
+  vec3 rgb = max(WB_709_TO_2020 * (balanced * inv), 0.0);
+  vec3 adapted = max(fromLms * (gain * (toLms * (WB_2020_TO_XYZ * rgb))), 0.0);
+  vec3 back = max(fromLms * max(toLms * wbGamut(adapted), 0.0), 0.0);
+  return WB_2020_TO_709 * max(WB_XYZ_TO_2020 * back, 0.0);
+}
+`, N = `if (${O} != 0) {
+  lin = wbAdapt(lin, applyWhiteBalance(vec3(1.0), uTemperature, uTint, uAsShotTemperature), ${O});
+}`;
+function P() {
+	return {
+		id: D,
+		name: "White Balance adaptation",
+		phase: "scene-linear",
+		priority: 110,
+		anchor: "white-balance",
+		glsl: N,
+		helpers: M,
+		uniforms: [{
+			key: O,
+			glslType: "int",
+			default: _.rgb,
+			label: "Adaptation"
+		}],
+		dormantWhen: { [O]: _.rgb }
+	};
+}
 //#endregion
 //#region src/styles.ts
-var a = "safelight-white-balance", o = {
-	toolbar: `${a}-toolbar`,
-	preset: `${a}-preset`,
-	sliders: `${a}-sliders`,
-	asShot: `${a}-as-shot`
+var F = "safelight-white-balance", I = {
+	toolbar: `${F}-toolbar`,
+	preset: `${F}-preset`,
+	sliders: `${F}-sliders`,
+	asShot: `${F}-as-shot`
 };
-function s(e) {
+function ee(e) {
 	return `
-:where(.${o.toolbar}) { margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between; }
-:where(.${o.sliders} > :not(:last-child)) { margin-block: 0 0.125rem; }
-:where(.${o.preset}) { margin-bottom: 0.5rem; }
-:where(.${o.asShot}) { margin: 0.25rem 0 0; font-size: 10px; color: ${e.textSecondary}; }
-html.sl-larger-text .${o.asShot} { font-size: 12px !important; }
+:where(.${I.toolbar}) { margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between; }
+:where(.${I.sliders} > :not(:last-child)) { margin-block: 0 0.125rem; }
+:where(.${I.preset}) { margin-bottom: 0.5rem; }
+:where(.${I.asShot}) { margin: 0.25rem 0 0; font-size: 10px; color: ${e.textSecondary}; }
+html.sl-larger-text .${I.asShot} { font-size: 12px !important; }
 `;
 }
 //#endregion
 //#region src/blackbody.ts
-var c = 1e3, l = 5e4, u = 2e3, d = 5e4, f = 150, p = .6, m = 8e-4, h = 6500, g = 240;
-function _(e) {
+var te = 1e3, ne = 5e4, L = 2e3, re = 5e4, ie = 150, ae = .6, oe = 8e-4, se = 6500, R = 240;
+function ce(e) {
 	return e <= .04045 ? e / 12.92 : ((e + .055) / 1.055) ** 2.4;
 }
-function v(e) {
-	let t = Math.min(l, Math.max(c, e)) / 100, n, r, i;
+function z(e) {
+	let t = Math.min(ne, Math.max(te, e)) / 100, n, r, i;
 	t <= 66 ? (n = 255, r = 99.4708025861 * Math.log(t) - 161.1195681661) : (n = 329.698727446 * (t - 60) ** -.1332047592, r = 288.1221695283 * (t - 60) ** -.0755148492), i = t >= 66 ? 255 : t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307;
-	let a = (e) => _(Math.min(1, Math.max(m, e / 255)));
+	let a = (e) => ce(Math.min(1, Math.max(oe, e / 255)));
 	return [
 		a(n),
 		a(r),
 		a(i)
 	];
 }
-function y(e, t) {
-	let n = v(t), r = v(e), i = n[1] / r[1];
+function le(e, t) {
+	let n = z(t), r = z(e), i = n[1] / r[1];
 	return [
 		n[0] / r[0] / i,
 		1,
 		n[2] / r[2] / i
 	];
 }
-function b(e) {
-	return (1 - e) * (f / p);
+function ue(e) {
+	return (1 - e) * (ie / ae);
 }
-function x(e, t = h) {
-	let n = v(t), r = t, i = Infinity;
-	for (let t = 0; t <= g; t++) {
-		let a = u * (d / u) ** +(t / g), o = v(a), s = Math.abs(Math.log(n[0] / o[0] / (n[2] / o[2])) - e);
+function de(e, t = se) {
+	let n = z(t), r = t, i = Infinity;
+	for (let t = 0; t <= R; t++) {
+		let a = L * (re / L) ** +(t / R), o = z(a), s = Math.abs(Math.log(n[0] / o[0] / (n[2] / o[2])) - e);
 		s < i && (i = s, r = a);
 	}
 	return r;
 }
-function S(e, t, n) {
+function B(e, t, n) {
 	if (!(e > 0) || !(t > 0) || !(n > 0)) return;
-	let r = x(Math.log(e / t / (n / t)));
+	let r = de(Math.log(e / t / (n / t)));
 	return Math.round(r / 10) * 10;
 }
 //#endregion
 //#region src/camera-aliases.data.ts
-var C = [
+var fe = [
 	["Canon EOS REBEL SL1", "EOS 100D"],
 	["Canon EOS Kiss X7", "EOS 100D"],
 	["Canon EOS Rebel SL2", "EOS 200D"],
@@ -130,7 +333,7 @@ var C = [
 	["Canon EOS Kiss Digital X", "EOS 400D"],
 	["Canon EOS KISS M", "EOS M50"],
 	["Canon EOS KISS M2", "EOS M50 Mark II"]
-], w = [
+], pe = [
 	[
 		"Canon",
 		"PowerShot A630",
@@ -20307,23 +20510,23 @@ var C = [
 			]
 		]
 	]
-], T = (e, t, n) => ({
+], V = (e, t, n) => ({
 	id: `preset:${e}`,
 	label: e,
 	temperature: t,
 	tint: n
-}), E = [
-	T("Daylight", 5500, 0),
-	T("Cloudy", 6500, 0),
-	T("Shade", 7500, 0),
-	T("Tungsten", 2850, 0),
-	T("Fluorescent", 3800, 16),
-	T("Flash", 5500, 0)
+}), me = [
+	V("Daylight", 5500, 0),
+	V("Cloudy", 6500, 0),
+	V("Shade", 7500, 0),
+	V("Tungsten", 2850, 0),
+	V("Fluorescent", 3800, 16),
+	V("Flash", 5500, 0)
 ];
-function D(e) {
+function H(e) {
 	return !e || !((e.exif.colorTemperature ?? 0) > 0) ? "rendered" : /\.dng$/i.test(e.filename) ? "dng" : "camera-raw";
 }
-var O = (e) => e.toLowerCase().replace(/[^a-z0-9]/g, ""), k = [
+var U = (e) => e.toLowerCase().replace(/[^a-z0-9]/g, ""), he = [
 	["olympus", [
 		"olympus",
 		"omdigital",
@@ -20341,197 +20544,209 @@ var O = (e) => e.toLowerCase().replace(/[^a-z0-9]/g, ""), k = [
 	["panasonic", ["panasonic"]],
 	["samsung", ["samsung"]],
 	["sony", ["sony"]]
-], A = /^(konicaminolta|minolta|canon|nikon|pentax|ricoh|leica|olympus|panasonic|sony|samsung|kodak|fujifilm|phaseone|leaf)(?=.)/;
-function j(e) {
-	let t = O(e);
-	return k.find(([, e]) => e.some((e) => t.includes(e)))?.[0];
+], ge = /^(konicaminolta|minolta|canon|nikon|pentax|ricoh|leica|olympus|panasonic|sony|samsung|kodak|fujifilm|phaseone|leaf)(?=.)/;
+function W(e) {
+	let t = U(e);
+	return he.find(([, e]) => e.some((e) => t.includes(e)))?.[0];
 }
-var M = (e) => O(e).replace(A, ""), N;
-function P() {
-	if (N) return N;
-	N = /* @__PURE__ */ new Map();
-	for (let e of w) {
-		let t = `${j(e[0])}|${M(e[1])}`;
-		N.has(t) || N.set(t, e);
+var G = (e) => U(e).replace(ge, ""), K;
+function _e() {
+	if (K) return K;
+	K = /* @__PURE__ */ new Map();
+	for (let e of pe) {
+		let t = `${W(e[0])}|${G(e[1])}`;
+		K.has(t) || K.set(t, e);
 	}
-	for (let [e, t] of C) {
-		let n = N.get(`canon|${M(t)}`), r = `canon|${M(e)}`;
-		n && !N.has(r) && N.set(r, n);
+	for (let [e, t] of fe) {
+		let n = K.get(`canon|${G(t)}`), r = `canon|${G(e)}`;
+		n && !K.has(r) && K.set(r, n);
 	}
-	return N;
+	return K;
 }
-function F(e, t) {
+function ve(e, t) {
 	if (!e || !t) return;
-	let n = j(e);
-	if (n) return P().get(`${n}|${M(t)}`);
+	let n = W(e);
+	if (n) return _e().get(`${n}|${G(t)}`);
 }
-var I = [
+var ye = [
 	"Daylight",
 	"Direct Sunlight",
 	"Sunny"
 ];
-function L(e, t) {
+function be(e, t) {
 	if (t) return [t[0] / t[1], t[2] / t[1]];
-	let n = e.find(([e]) => I.includes(e));
+	let n = e.find(([e]) => ye.includes(e));
 	return n && [n[1], n[2]];
 }
-function R(e, t) {
-	let [, , n] = e, r = L(n, t), i = r && S(r[0], 1, r[1]), a = [];
+function xe(e, t) {
+	let [, , n] = e, r = be(n, t), i = r && B(r[0], 1, r[1]), a = [];
 	for (let [e, t, o] of n) {
-		let n = S(t, 1, o);
+		let n = B(t, 1, o);
 		if (n === void 0) continue;
 		let s = 0;
 		if (r && i !== void 0) {
-			let [e, , a] = y(n, i), c = Math.sqrt(t / r[0] * (o / r[1])) / Math.sqrt(e * a);
-			s = Math.round(b(1 / c)) || 0;
+			let [e, , a] = le(n, i), c = Math.sqrt(t / r[0] * (o / r[1])) / Math.sqrt(e * a);
+			s = Math.round(ue(1 / c)) || 0;
 		}
-		a.push(T(e, n, s));
+		a.push(V(e, n, s));
 	}
 	return a;
 }
-function z(e) {
-	let t = D(e);
+function Se(e) {
+	let t = H(e);
 	if (t === "dng") return {
-		presets: E,
+		presets: me,
 		missing: !1
 	};
 	if (t === "rendered" || !e) return {
 		presets: [],
 		missing: !1
 	};
-	let n = F(e.exif.cameraMake, e.exif.cameraModel);
+	let n = ve(e.exif.cameraMake, e.exif.cameraModel);
 	return n ? {
 		title: `${n[0]} ${n[1]}`,
-		presets: R(n, e.exif.asShotMultipliers),
+		presets: xe(n, e.exif.asShotMultipliers),
 		missing: !1
 	} : {
 		presets: [],
 		missing: !0
 	};
 }
-var B = (e, t) => e.temperature === t.temperature && e.tint === t.tint;
-function V(e, t, n, r) {
-	if (B(e, {
+var q = (e, t) => e.temperature === t.temperature && e.tint === t.tint;
+function Ce(e, t, n, r) {
+	if (q(e, {
 		temperature: t,
 		tint: 0
 	})) return "as-shot";
-	let i = n.find((t) => B(e, t));
-	return i ? i.id : r && B(e, r) ? "auto" : "custom";
+	let i = n.find((t) => q(e, t));
+	return i ? i.id : r && q(e, r) ? "auto" : "custom";
 }
-var H = 1e6, U = 5e4;
-function W(e, t) {
-	return Math.round(H / t - H / e) || 0;
+var J = 1e6, Y = 5e4;
+function we(e, t) {
+	return Math.round(J / t - J / e) || 0;
 }
-function G(e, t) {
+function Te(e, t) {
 	if (e === 0) return t;
-	let n = H / t - e;
-	return n <= H / U ? U : H / n;
+	let n = J / t - e;
+	return n <= J / Y ? Y : J / n;
 }
 //#endregion
 //#region src/WhiteBalancePanel.tsx
-var K = { onPress(e) {
+var Ee = { onPress(e) {
 	t.develop.setPickDrag(null), t.develop.autoAdjust.whiteBalanceAt(e);
-} }, q = /* @__PURE__ */ new Map();
-function J(e, t, n) {
+} }, X = /* @__PURE__ */ new Map(), De = Object.values(_).map((e) => ({
+	value: String(e),
+	label: v[e]
+})), Oe = "How the white balance changes colours: RGB gains scale each channel; CAT16, Bradford and XYZ adapt the light in a cone-response space and compress the gamut toward white";
+function Z(e, t, n) {
 	return e === "rendered" ? n ? `As shot · ${n}` : null : n ? `As shot ${t} K · ${n}` : `As shot ${t} K`;
 }
-function Y() {
-	let { Panel: n, Slider: r, PickerIcon: i, AutoButton: a } = t.components, { Button: s, Row: c, Select: l } = t.ui, u = t.stores.useDevelopStore, d = u((e) => e.params.temperature), f = u((e) => e.params.tint), p = u((e) => e.setParam), m = u((e) => e.commitEdit), h = u((e) => e.histogram != null), g = u((e) => e.asShotTemperature), _ = t.develop.usePickDragHeld(), v = t.catalog.useActivePhoto(), [, y] = e.useReducer((e) => e + 1, 0), b = D(v), x = e.useMemo(() => z(v), [v]), S = v ? q.get(v.id) ?? null : null, C = V({
-		temperature: d,
-		tint: f
-	}, g, x.presets, S), w = J(b, g, v?.exif.whiteBalance), T = async () => {
-		if (!h) return;
-		let e = u.getState();
+function ke() {
+	let { Panel: n, Slider: r, PickerIcon: i, AutoButton: a } = t.components, { Button: o, Row: s, Select: c } = t.ui, l = t.stores.useDevelopStore, u = l((e) => e.params.temperature), d = l((e) => e.params.tint), f = l((e) => e.setParam), p = l((e) => e.commitEdit), m = l((e) => e.histogram != null), h = l((e) => e.asShotTemperature), g = l((e) => y(e.paramBag[k])), _ = l((e) => e.setDynParams), b = t.develop.usePickDragHeld(), x = t.catalog.useActivePhoto(), [, S] = e.useReducer((e) => e + 1, 0), C = H(x), w = e.useMemo(() => Se(x), [x]), T = x ? X.get(x.id) ?? null : null, E = Ce({
+		temperature: u,
+		tint: d
+	}, h, w.presets, T), D = Z(C, h, x?.exif.whiteBalance), O = async () => {
+		if (!m) return;
+		let e = l.getState();
 		await t.develop.autoAdjust.whiteBalance();
-		let n = u.getState(), { temperature: r, tint: i } = n.params, a = r !== e.params.temperature || i !== e.params.tint;
-		e.photoId && n.photoId === e.photoId && a && (q.set(e.photoId, {
+		let n = l.getState(), { temperature: r, tint: i } = n.params, a = r !== e.params.temperature || i !== e.params.tint;
+		e.photoId && n.photoId === e.photoId && a && (X.set(e.photoId, {
 			temperature: r,
 			tint: i
-		}), y());
-	}, E = h ? () => void T() : void 0, O = (e, t, n) => {
-		p("temperature", t), p("tint", n), m(`White Balance: ${e}`);
-	}, k = (e) => {
-		if (e === "auto") return void T();
-		if (e === "as-shot") return O("As Shot", g, 0);
-		let t = x.presets.find((t) => t.id === e);
-		t && O(t.label, t.temperature, t.tint);
-	}, A = [{ items: [{
+		}), S());
+	}, A = m ? () => void O() : void 0, j = (e, t, n) => {
+		f("temperature", t), f("tint", n), p(`White Balance: ${e}`);
+	}, M = (e) => {
+		if (e === "auto") return void O();
+		if (e === "as-shot") return j("As Shot", h, 0);
+		let t = w.presets.find((t) => t.id === e);
+		t && j(t.label, t.temperature, t.tint);
+	}, N = (e) => {
+		let t = y(Number(e));
+		t !== g && (_({ [k]: t }), p(`White Balance: ${v[t]}`));
+	}, P = [{ items: [{
 		value: "as-shot",
 		label: "As Shot"
 	}, {
 		value: "auto",
 		label: "Auto",
-		disabled: !h
+		disabled: !m
 	}] }];
-	x.presets.length > 0 && A.push({
-		title: x.title,
-		items: x.presets.map((e) => ({
+	w.presets.length > 0 && P.push({
+		title: w.title,
+		items: w.presets.map((e) => ({
 			value: e.id,
 			label: e.label
 		}))
-	}), x.missing && A.push({ items: [{
+	}), w.missing && P.push({ items: [{
 		value: "none",
 		label: "No presets for this camera",
 		disabled: !0
-	}] }), A.push({ items: [{
+	}] }), P.push({ items: [{
 		value: "custom",
 		label: "Custom",
 		disabled: !0
 	}] });
-	let j = b === "rendered";
-	return /* @__PURE__ */ e.createElement(n, { title: "White Balance" }, /* @__PURE__ */ e.createElement("div", { className: o.toolbar }, /* @__PURE__ */ e.createElement(s, {
+	let F = C === "rendered";
+	return /* @__PURE__ */ e.createElement(n, { title: "White Balance" }, /* @__PURE__ */ e.createElement("div", { className: I.toolbar }, /* @__PURE__ */ e.createElement(o, {
 		size: "sm",
-		active: _,
-		onClick: () => t.develop.setPickDrag(_ ? null : K),
-		disabled: !h,
+		active: b,
+		onClick: () => t.develop.setPickDrag(b ? null : Ee),
+		disabled: !m,
 		title: "White balance selector — click a neutral grey in the image",
-		"aria-pressed": _
-	}, /* @__PURE__ */ e.createElement(c, {
+		"aria-pressed": b
+	}, /* @__PURE__ */ e.createElement(s, {
 		gap: 4,
 		align: "center"
 	}, /* @__PURE__ */ e.createElement(i, { size: 12 }), "Picker")), /* @__PURE__ */ e.createElement(a, {
-		onClick: () => void T(),
-		disabled: !h,
+		onClick: () => void O(),
+		disabled: !m,
 		title: "Auto white balance (grey-world)"
-	})), /* @__PURE__ */ e.createElement("div", { className: o.preset }, /* @__PURE__ */ e.createElement(l, {
-		value: C,
-		onChange: k,
-		groups: A,
+	})), /* @__PURE__ */ e.createElement("div", { className: I.preset }, /* @__PURE__ */ e.createElement(c, {
+		value: E,
+		onChange: M,
+		groups: P,
 		ariaLabel: "White balance preset"
-	})), /* @__PURE__ */ e.createElement("div", { className: o.sliders }, j ? /* @__PURE__ */ e.createElement(r, {
+	})), /* @__PURE__ */ e.createElement("div", { className: I.sliders }, F ? /* @__PURE__ */ e.createElement(r, {
 		label: "Temp",
-		value: W(d, g),
+		value: we(u, h),
 		min: -100,
 		max: 100,
 		step: 1,
 		defaultValue: 0,
-		onChange: (e) => p("temperature", G(e, g)),
-		onCommit: () => void m("Temperature"),
-		onAuto: E
+		onChange: (e) => f("temperature", Te(e, h)),
+		onCommit: () => void p("Temperature"),
+		onAuto: A
 	}) : /* @__PURE__ */ e.createElement(r, {
 		label: "Temp",
-		value: d,
+		value: u,
 		min: 2e3,
 		max: 5e4,
 		step: 10,
-		defaultValue: g,
-		onChange: (e) => p("temperature", e),
-		onCommit: () => void m("Temperature"),
-		onAuto: E
+		defaultValue: h,
+		onChange: (e) => f("temperature", e),
+		onCommit: () => void p("Temperature"),
+		onAuto: A
 	}), /* @__PURE__ */ e.createElement(r, {
 		label: "Tint",
-		value: f,
+		value: d,
 		min: -150,
 		max: 150,
 		defaultValue: 0,
-		onChange: (e) => p("tint", e),
-		onCommit: () => void m("Tint"),
-		onAuto: E
-	})), w && /* @__PURE__ */ e.createElement("p", { className: o.asShot }, w));
+		onChange: (e) => f("tint", e),
+		onCommit: () => void p("Tint"),
+		onAuto: A
+	})), D && /* @__PURE__ */ e.createElement("p", { className: I.asShot }, D), /* @__PURE__ */ e.createElement("div", { className: I.preset }, /* @__PURE__ */ e.createElement(c, {
+		value: String(g),
+		onChange: N,
+		options: De,
+		ariaLabel: "White balance adaptation",
+		title: Oe
+	})));
 }
-function X() {
+function Ae() {
 	let { Slider: n } = t.components, r = t.develop.useMaskScope();
-	return /* @__PURE__ */ e.createElement("div", { className: o.sliders }, /* @__PURE__ */ e.createElement(n, {
+	return /* @__PURE__ */ e.createElement("div", { className: I.sliders }, /* @__PURE__ */ e.createElement(n, {
 		label: "Temp",
 		value: r.adj.temperature,
 		min: -100,
@@ -20551,19 +20766,19 @@ function X() {
 		onCommit: () => r.commit("Mask Tint")
 	}));
 }
-var Z = {
-	component: X,
+var je = {
+	component: Ae,
 	order: 20,
 	owns: ["temperature", "tint"]
-}, Q = "core.white-balance", $ = "safelight.white-balance.styles", ee = 3;
-function te(e) {
+}, Q = "core.white-balance", $ = "safelight.white-balance.styles", Me = 3;
+function Ne(e) {
 	n(e), e.registerStylesheet({
 		id: $,
-		css: s(e.ui.tokens)
-	}), e.registerProcessingStage(i(3)), e.registerPanel({
+		css: ee(e.ui.tokens)
+	}), e.registerProcessingStage(E(3)), e.registerProcessingStage(P()), e.registerPanel({
 		id: Q,
 		title: "White Balance",
-		component: Y,
+		component: ke,
 		defaultDock: {
 			module: "develop",
 			direction: "right",
@@ -20572,11 +20787,14 @@ function te(e) {
 			height: 120
 		},
 		modules: ["develop"],
-		onReset: () => void e.stores.useDevelopStore.getState().resetParams(["temperature", "tint"], "Reset White Balance"),
-		mask: Z
+		onReset: () => {
+			let t = e.stores.useDevelopStore.getState();
+			t.setDynParams({ [k]: void 0 }), t.resetParams(["temperature", "tint"], "Reset White Balance");
+		},
+		mask: je
 	});
 }
 //#endregion
-export { ee as LINE, Q as PANEL_ID, $ as STYLESHEET_ID, te as activate };
+export { Me as LINE, Q as PANEL_ID, $ as STYLESHEET_ID, Ne as activate };
 
 //# sourceMappingURL=index.js.map

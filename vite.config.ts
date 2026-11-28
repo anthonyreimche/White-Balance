@@ -22,6 +22,7 @@ export default defineConfig({
   },
   test: {
     include: ["test/**/*.test.{ts,tsx}"],
+    exclude: ["test/gpu/**", "node_modules/**"],
     environment: "jsdom",
   },
 });

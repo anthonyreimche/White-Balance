@@ -33,7 +33,8 @@ import type {
 export type DevelopCall =
   | { setParam: keyof DevelopParams; value: number }
   | { commitEdit: string }
-  | { resetParams: (keyof DevelopParams)[]; label: string };
+  | { resetParams: (keyof DevelopParams)[]; label: string }
+  | { setDynParams: Record<string, unknown> };
 
 export type AutoCall = "whiteBalance" | { whiteBalanceAt: CanvasPoint };
 
@@ -74,8 +75,9 @@ export interface Rig {
   sliders(root: ParentNode): SliderProps[];
   /** The props core's AutoButton was last rendered with. */
   auto(): AutoButtonProps;
-  /** The props core's Select was last rendered with. */
-  select(): SelectProps;
+  /** The props the Select with `ariaLabel` was last rendered with: the
+   *  preset menu unless a test names another. */
+  select(ariaLabel?: string): SelectProps;
   mask: { adj: { temperature: number; tint: number }; commits: string[] };
 }
 
@@ -85,6 +87,7 @@ export function fakeApi({
   tint = 0,
   asShot = AS_SHOT,
   photo = Z6_RAW as PhotoSketch | null,
+  paramBag = {} as Record<string, unknown>,
 } = {}): Rig {
   const calls: DevelopCall[] = [];
   const autos: AutoCall[] = [];
@@ -97,12 +100,13 @@ export function fakeApi({
   const sliderProps = new Map<number, SliderProps>();
   let nextSlider = 0;
   let lastAuto: AutoButtonProps | null = null;
-  let lastSelect: SelectProps | null = null;
+  const selects = new Map<string, SelectProps>();
   const active = photo ? ({ id: `photo-${nextPhoto++}`, ...photo } as CatalogPhoto) : undefined;
 
   const develop: StoreApi<DevelopStoreState> = create<DevelopStoreState>()((set) => ({
     photoId: active?.id ?? null,
     params: { temperature, tint },
+    paramBag,
     asShotTemperature: asShot,
     histogram: histogram ? {} : null,
     setParam: (key, value) => {
@@ -111,6 +115,17 @@ export function fakeApi({
     },
     commitEdit: async (label) => {
       calls.push({ commitEdit: label });
+    },
+    setDynParams: (patch) => {
+      calls.push({ setDynParams: patch });
+      set((s) => {
+        const bag: Record<string, unknown> = { ...s.paramBag };
+        for (const [key, value] of Object.entries(patch)) {
+          if (value === undefined) delete bag[key];
+          else bag[key] = value;
+        }
+        return { paramBag: bag };
+      });
     },
     resetParams: async (keys, label) => {
       calls.push({ resetParams: keys, label });
@@ -134,7 +149,7 @@ export function fakeApi({
   }
 
   function Select(props: SelectProps) {
-    lastSelect = props;
+    selects.set(props.ariaLabel ?? "", props);
     return React.createElement("div", { "data-select": props.value }, props.value);
   }
 
@@ -202,9 +217,10 @@ export function fakeApi({
       if (!lastAuto) throw new Error("AutoButton has not rendered");
       return lastAuto;
     },
-    select: () => {
-      if (!lastSelect) throw new Error("Select has not rendered");
-      return lastSelect;
+    select: (ariaLabel = "White balance preset") => {
+      const props = selects.get(ariaLabel);
+      if (!props) throw new Error(`Select "${ariaLabel}" has not rendered`);
+      return props;
     },
     mask,
   };
